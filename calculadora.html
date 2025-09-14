@@ -1,0 +1,579 @@
+<!doctype html>
+
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Calculadora SEEDUC – Migração 30h + Enquadramento + Triênios</title>
+  <style>
+    :root{
+      --bg:#0b0c10; --card:#111318; --muted:#9aa4b2; --fg:#f5f7fb; --accent:#6ee7ff; --accent2:#a3ffa3;
+      --danger:#ff6b6b; --ok:#7ae582; --warn:#ffd166;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,#0b0c10,#0c1016);color:var(--fg);font:15px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial}
+    .wrap{max-width:1100px;margin:32px auto;padding:0 16px}
+    header{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;margin-bottom:16px}
+    h1{font-size:22px;margin:0}
+    .sub{color:var(--muted)}
+    .row{display:grid;gap:16px}
+    @media(min-width:860px){.row{grid-template-columns:2fr 1fr}}
+    .card{background:var(--card);border:1px solid #1b1f2a;border-radius:16px;padding:18px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .card h2{margin:0 0 10px;font-size:18px}
+    .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+    .controls .spacer{flex:1}
+    .btn{appearance:none;border:1px solid #2a3342;background:#141925;color:#cfe3ff;border-radius:12px;padding:10px 12px;cursor:pointer}
+    .btn:hover{border-color:#3b4b64}
+    .btn.primary{background:linear-gradient(180deg,#16324a,#111d2b);border-color:#2a3c52;color:#e8f4ff}
+    .btn.success{background:linear-gradient(180deg,#154a2b,#0f2f1b);border-color:#1f8f4a;color:#e7ffe7}
+    .btn.danger{background:linear-gradient(180deg,#4a1520,#2b0f13);border-color:#8f1f3a;color:#ffe7e7}
+    .grid{display:grid;gap:10px}
+    .grid.two{grid-template-columns:1fr 1fr}
+    .grid.three{grid-template-columns:repeat(3,1fr)}
+    .grid.four{grid-template-columns:repeat(4,1fr)}
+    label{display:block;font-size:12px;color:var(--muted);margin:2px 0 6px}
+    input[type="text"],input[type="number"],select{width:100%;border:1px solid #2a3342;background:#0e121a;color:#e9f0ff;border-radius:10px;padding:10px}
+    input[type="number"]{text-align:right}
+    .out{font-variant-numeric:tabular-nums}
+    .mini{font-size:12px;color:var(--muted)}
+    .switch{display:flex;gap:10px;align-items:center}
+    .switch input{accent-color:#5ee1ff}
+    .hr{height:1px;background:#1b1f2a;margin:12px 0}
+    .pill{display:inline-block;border:1px solid #2a3342;background:#0e121a;border-radius:999px;padding:6px 10px;color:#c0d5ff;font-size:12px}
+    .totals{display:grid;gap:10px}
+    .totals .kpi{background:#0f1420;border:1px solid #222a3a;border-radius:14px;padding:12px}
+    .kpi h3{margin:0 0 6px;font-size:12px;color:#a9b5c8}
+    .kpi .val{font-size:20px}
+    .footer{margin:18px 0 6px;color:#7a8598;font-size:12px}
+    .danger-text{color:var(--danger)}
+    .ok-text{color:var(--ok)}
+    details{background:#0e121a;border:1px solid #1d2533;border-radius:12px;padding:10px}
+    details>summary{cursor:pointer;color:#cfe3ff;margin: -10px -10px 6px;padding:10px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Calculadora SEEDUC – Migração 30h + Enquadramento</h1>
+        <div class="sub">Prototipo offline. Ajuste os campos e veja o líquido estimado por vínculo e total.</div>
+      </div>
+      <div class="controls">
+        <button id="save" class="btn">Salvar cenário</button>
+        <button id="load" class="btn">Carregar cenário</button>
+        <button id="reset" class="btn danger">Zerar</button>
+      </div>
+    </header><div class="row">
+  <section class="card">
+    <h2>Configurações de Cálculo</h2>
+    <div class="grid two">
+      <div>
+        <label>Alíquota RioPrevidência (ex.: 14% → 0,14)</label>
+        <input type="number" step="0.0001" id="aliquotaPrev" value="0.14">
+      </div>
+      <div>
+        <label>Método IRRF</label>
+        <select id="irMetodo">
+          <option value="efetivo" selected>Taxa efetiva (simplificado)</option>
+          <option value="progressivo">Tabela progressiva (personalizada)</option>
+        </select>
+      </div>
+    </div>
+    <div id="irEfetivoBox" class="grid two" style="margin-top:10px;">
+      <div>
+        <label>IRRF – taxa efetiva (ex.: 17,3% → 0,173)</label>
+        <input type="number" step="0.0001" id="irEfetivo" value="0.173">
+      </div>
+      <div class="mini" style="align-self:end;">Dica: use a taxa que aparece na prática na sua folha para aproximar o resultado.</div>
+    </div>
+    <details id="irTabelaBox" style="display:none;margin-top:10px;">
+      <summary>Editar Tabela Progressiva (opcional)</summary>
+      <div class="mini" style="margin-bottom:6px">Valores de referência mensais. Preencha faixas, alíquotas e parcela a deduzir. Se deixar vazio, o cálculo cairá no modo efetivo.</div>
+      <div class="grid four" id="faixas"></div>
+    </details>
+  </section>
+
+  <section class="card">
+    <h2>Totais</h2>
+    <div class="totals">
+      <div class="kpi"><h3>Bruto Somado</h3><div class="val out" id="totalBruto">R$ 0,00</div></div>
+      <div class="kpi"><h3>RioPrevidência (total)</h3><div class="val out" id="totalPrev">R$ 0,00</div></div>
+      <div class="kpi"><h3>IRRF (total)</h3><div class="val out" id="totalIR">R$ 0,00</div></div>
+      <div class="kpi"><h3>Líquido Somado</h3><div class="val out ok-text" id="totalLiquido">R$ 0,00</div></div>
+    </div>
+  </section>
+</div>
+
+<section class="card" style="margin-top:16px">
+  <div class="controls" style="margin-bottom:6px">
+    <h2 style="margin:0">Vínculos</h2>
+    <span class="spacer"></span>
+    <button id="addVinculo" class="btn primary">+ Adicionar vínculo</button>
+  </div>
+  <div id="vinculos"></div>
+</section>
+
+<div class="footer">⚠️ Observação: esta calculadora usa por padrão o IR por <b>taxa efetiva</b> (como observado no seu contracheque). Se quiser usar a tabela oficial, mude para “progressiva” e preencha as faixas conforme a norma vigente.</div>
+
+  </div>  <template id="tplVinculo">
+    <div class="v-card" style="margin:12px 0 0 0">
+      <div class="hr"></div>
+      <div class="controls" style="margin:8px 0 14px">
+        <span class="pill">Vínculo</span>
+        <input type="text" class="v-nome" value="Vínculo">
+        <span class="spacer"></span>
+        <button class="btn danger v-del">Remover</button>
+      </div>
+      <div class="grid three">
+        <div>
+          <label>Base 30h (pré-enquadramento)</label>
+          <input type="number" class="v-basePre" step="0.01" value="0">
+        </div>
+        <div>
+          <label>+ Nível (% → p.ex. 0,12 = +12%)</label>
+          <input type="number" class="v-nivel" step="0.0001" value="0.12">
+        </div>
+        <div>
+          <label>Triênios – modo</label>
+          <select class="v-triModo">
+            <option value="percent" selected>Percentual total</option>
+            <option value="quantidade">Quantidade (10% + 5% cada adicional)</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid three tri-percent">
+        <div>
+          <label>Triênios (percentual total) – ex.: 0,50 = 50%</label>
+          <input type="number" class="v-triPercent" step="0.0001" value="0.50">
+        </div>
+        <div></div>
+        <div></div>
+      </div>
+      <div class="grid three tri-quant" style="display:none;">
+        <div>
+          <label>Quantidade de triênios</label>
+          <input type="number" class="v-triQtd" step="1" value="1" min="1">
+        </div>
+        <div>
+          <label>Percentual total (calculado)</label>
+          <input type="number" class="v-triPercentCalc" step="0.0001" value="0.10" readonly>
+        </div>
+        <div class="mini" style="align-self:end;">Fórmula: 10% no 1º + 5% a cada adicional.</div>
+      </div>
+      <div class="grid three">
+        <div>
+          <label>Auxílio Transporte</label>
+          <input type="number" class="v-auxTransp" step="0.01" value="0">
+        </div>
+        <div>
+          <label>Auxílio Alimentação</label>
+          <input type="number" class="v-auxAlim" step="0.01" value="0">
+        </div>
+        <div>
+          <label>Outros Proventos</label>
+          <input type="number" class="v-outros" step="0.01" value="0">
+        </div>
+      </div>
+      <div class="grid three">
+        <div>
+          <label>APPAI</label>
+          <input type="number" class="v-appai" step="0.01" value="0">
+        </div>
+        <div>
+          <label>Consignados</label>
+          <input type="number" class="v-cons" step="0.01" value="0">
+        </div>
+        <div>
+          <label>Usar taxa IR específica neste vínculo?</label>
+          <select class="v-overrideIr">
+            <option value="nao" selected>Não</option>
+            <option value="sim">Sim</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid two v-irLocalBox" style="display:none;">
+        <div>
+          <label>IRRF – taxa efetiva (este vínculo)</label>
+          <input type="number" class="v-irLocal" step="0.0001" value="0.173">
+        </div>
+        <div class="mini" style="align-self:end;">Se ativado, substitui a taxa global.</div>
+      </div>
+      <div class="hr"></div>
+      <div class="grid three">
+        <div class="kpi"><h3>Base 30h (pós-enquadr.)</h3><div class="val out v-basePos">R$ 0,00</div></div>
+        <div class="kpi"><h3>Triênios (valor)</h3><div class="val out v-triVal">R$ 0,00</div></div>
+        <div class="kpi"><h3>Proventos fixos</h3><div class="val out v-fixos">R$ 0,00</div></div>
+      </div>
+      <div class="grid three" style="margin-top:8px">
+        <div class="kpi"><h3>Bruto total</h3><div class="val out v-bruto">R$ 0,00</div></div>
+        <div class="kpi"><h3>RioPrevidência</h3><div class="val out v-prev">R$ 0,00</div></div>
+        <div class="kpi"><h3>IRRF</h3><div class="val out v-ir">R$ 0,00</div></div>
+      </div>
+      <div class="grid three" style="margin-top:8px">
+        <div class="kpi" style="grid-column: span 3"><h3>Líquido</h3><div class="val out ok-text v-liquido">R$ 0,00</div></div>
+      </div>
+    </div>
+  </template>  <script>
+    const $ = (sel, el=document) => el.querySelector(sel);
+    const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
+    const brl = v => (isFinite(v)? v:0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+    const toNum = (v, d=0) => {
+      const n = parseFloat(v);
+      return Number.isFinite(n) ? n : d;
+    };
+
+    // IR progressive helper
+    function calcIRProgressivo(baseIR, faixas){
+      // faixas: array de objetos {ate, aliquota, deduzir}
+      // assume ordenadas por 'ate' asc; última pode ter ate = '' (infinita)
+      if (!Array.isArray(faixas) || faixas.length===0) return 0;
+      // Encontrar a faixa aplicável (BR: imposto = base*aliquota - deduzir)
+      const b = Math.max(0, baseIR);
+      let faixa = null;
+      for (const f of faixas){
+        const lim = f.ate === '' ? Infinity : toNum(f.ate, Infinity);
+        if (b <= lim){ faixa = f; break; }
+      }
+      if (!faixa) faixa = faixas[faixas.length-1];
+      const aliquota = toNum(faixa.aliquota, 0); // ex.: 0.275
+      const deduzir = toNum(faixa.deduzir, 0);
+      return Math.max(0, b*aliquota - deduzir);
+    }
+
+    function triPercentFromQtd(qtd){
+      const q = Math.max(1, Math.floor(qtd));
+      return 0.10 + Math.max(0, q-1) * 0.05;
+    }
+
+    const state = {
+      aliquotaPrev: 0.14,
+      irMetodo: 'efetivo',
+      irEfetivo: 0.173,
+      faixas: [
+        // Exemplo vazio — preencha conforme norma vigente
+        {ate:'', aliquota:'', deduzir:''},
+      ],
+      vinculos: []
+    };
+
+    function addFaixaRow(container, faixa){
+      const wrap = document.createElement('div');
+      wrap.className = 'grid three';
+      wrap.style.gridTemplateColumns = '1fr 1fr 1fr 80px';
+      wrap.style.alignItems = 'end';
+
+      const f1 = document.createElement('div');
+      f1.innerHTML = '<label>Até (R$)</label><input type="number" step="0.01" class="fx-ate" placeholder="vazio = sem limite">';
+      const f2 = document.createElement('div');
+      f2.innerHTML = '<label>Alíquota (ex.: 0,275)</label><input type="number" step="0.0001" class="fx-ali">';
+      const f3 = document.createElement('div');
+      f3.innerHTML = '<label>Parcela a deduzir (R$)</label><input type="number" step="0.01" class="fx-ded">';
+      const f4 = document.createElement('div');
+      f4.innerHTML = '<button class="btn danger fx-del" title="Excluir faixa">Remover</button>';
+
+      wrap.appendChild(f1); wrap.appendChild(f2); wrap.appendChild(f3); wrap.appendChild(f4);
+      container.appendChild(wrap);
+
+      const ate = $('.fx-ate', wrap);
+      const ali = $('.fx-ali', wrap);
+      const ded = $('.fx-ded', wrap);
+      const del = $('.fx-del', wrap);
+
+      ate.value = faixa.ate ?? '';
+      ali.value = faixa.aliquota ?? '';
+      ded.value = faixa.deduzir ?? '';
+
+      const onChange = () => {
+        const idx = Array.from(container.children).indexOf(wrap);
+        state.faixas[idx] = {ate: ate.value, aliquota: ali.value, deduzir: ded.value};
+        recalcAll();
+      };
+      [ate,ali,ded].forEach(i => i.addEventListener('input', onChange));
+      del.addEventListener('click', () => {
+        const idx = Array.from(container.children).indexOf(wrap);
+        state.faixas.splice(idx,1);
+        container.removeChild(wrap);
+        recalcAll();
+      });
+    }
+
+    function renderFaixas(){
+      const box = $('#faixas');
+      box.innerHTML = '';
+      state.faixas.forEach(f => addFaixaRow(box, f));
+      // botão add
+      const add = document.createElement('button');
+      add.className = 'btn';
+      add.textContent = '+ Adicionar faixa';
+      add.addEventListener('click', () => { state.faixas.push({ate:'',aliquota:'',deduzir:''}); renderFaixas(); });
+      box.appendChild(add);
+    }
+
+    function addVinculo(data){
+      const tpl = $('#tplVinculo').content.cloneNode(true);
+      const root = tpl.querySelector('.v-card');
+      $('#vinculos').appendChild(root);
+
+      const el = {
+        root,
+        nome: $('.v-nome', root),
+        basePre: $('.v-basePre', root),
+        nivel: $('.v-nivel', root),
+        triModo: $('.v-triModo', root),
+        triPercent: $('.v-triPercent', root),
+        triQtd: $('.v-triQtd', root),
+        triPercentCalc: $('.v-triPercentCalc', root),
+        triPercentBox: $('.tri-percent', root),
+        triQuantBox: $('.tri-quant', root),
+        auxT: $('.v-auxTransp', root),
+        auxA: $('.v-auxAlim', root),
+        outros: $('.v-outros', root),
+        appai: $('.v-appai', root),
+        cons: $('.v-cons', root),
+        overrideIr: $('.v-overrideIr', root),
+        irLocalBox: $('.v-irLocalBox', root),
+        irLocal: $('.v-irLocal', root),
+        outBasePos: $('.v-basePos', root),
+        outTriVal: $('.v-triVal', root),
+        outFixos: $('.v-fixos', root),
+        outBruto: $('.v-bruto', root),
+        outPrev: $('.v-prev', root),
+        outIR: $('.v-ir', root),
+        outLiq: $('.v-liquido', root),
+        del: $('.v-del', root)
+      };
+
+      const recalc = () => {
+        const basePre = toNum(el.basePre.value,0);
+        const nivel = toNum(el.nivel.value,0);
+        let triPerc = 0;
+        if (el.triModo.value === 'percent'){
+          triPerc = toNum(el.triPercent.value,0);
+        } else {
+          const qtd = toNum(el.triQtd.value,1);
+          triPerc = triPercentFromQtd(qtd);
+          el.triPercentCalc.value = triPerc.toFixed(4);
+        }
+        const basePos = basePre * (1 + nivel);
+        const triVal = basePos * triPerc;
+        const fixos = basePos + triVal;
+        const auxT = toNum(el.auxT.value,0);
+        const auxA = toNum(el.auxA.value,0);
+        const outros = toNum(el.outros.value,0);
+        const bruto = fixos + auxT + auxA + outros;
+        const prevAliq = toNum($('#aliquotaPrev').value,0.14);
+        const prevVal = fixos * prevAliq;
+
+        let irVal = 0;
+        const metodo = $('#irMetodo').value;
+        const baseIR = Math.max(0, bruto - prevVal);
+        if (metodo === 'efetivo'){
+          const taxa = el.overrideIr.value==='sim' ? toNum(el.irLocal.value,0.173) : toNum($('#irEfetivo').value,0.173);
+          irVal = Math.max(0, baseIR * taxa);
+        } else {
+          irVal = calcIRProgressivo(baseIR, state.faixas);
+        }
+
+        const appai = toNum(el.appai.value,0);
+        const cons = toNum(el.cons.value,0);
+        const liq = bruto - prevVal - irVal - appai - cons;
+
+        el.outBasePos.textContent = brl(basePos);
+        el.outTriVal.textContent = brl(triVal);
+        el.outFixos.textContent = brl(fixos);
+        el.outBruto.textContent = brl(bruto);
+        el.outPrev.textContent = brl(prevVal);
+        el.outIR.textContent = brl(irVal);
+        el.outLiq.textContent = brl(liq);
+
+        // store
+        node.data = {
+          nome: el.nome.value,
+          basePre, nivel, triModo: el.triModo.value,
+          triPercent: toNum(el.triPercent.value,0.5), triQtd: toNum(el.triQtd.value,1),
+          auxT, auxA, outros, appai, cons,
+          overrideIr: el.overrideIr.value, irLocal: toNum(el.irLocal.value,0.173),
+          // outputs (for export convenience)
+          out: {basePos, triVal, fixos, bruto, prevVal, irVal, liq}
+        };
+        recalcTotals();
+      };
+
+      const bind = () => {
+        [el.nome, el.basePre, el.nivel, el.triModo, el.triPercent, el.triQtd, el.auxT, el.auxA, el.outros, el.appai, el.cons, el.overrideIr, el.irLocal].forEach(i=>{
+          i.addEventListener('input', recalc);
+        });
+        el.triModo.addEventListener('change', () => {
+          const isPercent = el.triModo.value==='percent';
+          el.triPercentBox.style.display = isPercent? 'grid':'none';
+          el.triQuantBox.style.display = isPercent? 'none':'grid';
+          recalc();
+        });
+        el.overrideIr.addEventListener('change', () => {
+          el.irLocalBox.style.display = el.overrideIr.value==='sim'? 'grid':'none';
+          recalc();
+        });
+        el.del.addEventListener('click', () => {
+          const idx = state.vinculos.indexOf(node);
+          if (idx>=0) state.vinculos.splice(idx,1);
+          root.remove();
+          recalcTotals();
+        });
+      };
+
+      const node = { el, recalc };
+      state.vinculos.push(node);
+      bind();
+
+      // defaults
+      if (data){
+        el.nome.value = data.nome ?? el.nome.value;
+        el.basePre.value = data.basePre ?? 0;
+        el.nivel.value = data.nivel ?? 0.12;
+        el.triModo.value = data.triModo ?? 'percent';
+        if (el.triModo.value==='percent'){
+          el.triPercentBox.style.display = 'grid';
+          el.triQuantBox.style.display = 'none';
+          el.triPercent.value = data.triPercent ?? 0.5;
+        } else {
+          el.triPercentBox.style.display = 'none';
+          el.triQuantBox.style.display = 'grid';
+          el.triQtd.value = data.triQtd ?? 1;
+          el.triPercentCalc.value = triPercentFromQtd(el.triQtd.value).toFixed(4);
+        }
+        el.auxT.value = data.auxT ?? 0;
+        el.auxA.value = data.auxA ?? 0;
+        el.outros.value = data.outros ?? 0;
+        el.appai.value = data.appai ?? 0;
+        el.cons.value = data.cons ?? 0;
+        el.overrideIr.value = data.overrideIr ?? 'nao';
+        el.irLocalBox.style.display = el.overrideIr.value==='sim'? 'grid':'none';
+        el.irLocal.value = data.irLocal ?? 0.173;
+      }
+      recalc();
+      return node;
+    }
+
+    function recalcAll(){
+      state.aliquotaPrev = toNum($('#aliquotaPrev').value,0.14);
+      state.irMetodo = $('#irMetodo').value;
+      state.irEfetivo = toNum($('#irEfetivo').value,0.173);
+      state.vinculos.forEach(v => v.recalc());
+    }
+
+    function recalcTotals(){
+      let bruto=0, prev=0, ir=0, liq=0;
+      state.vinculos.forEach(v => {
+        const o = v.el;
+        bruto += parseCurrency(o.outBruto.textContent);
+        prev  += parseCurrency(o.outPrev.textContent);
+        ir    += parseCurrency(o.outIR.textContent);
+        liq   += parseCurrency(o.outLiq.textContent);
+      });
+      $('#totalBruto').textContent = brl(bruto);
+      $('#totalPrev').textContent = brl(prev);
+      $('#totalIR').textContent = brl(ir);
+      $('#totalLiquido').textContent = brl(liq);
+    }
+
+    function parseCurrency(str){
+      if (!str) return 0;
+      return toNum(str.replace(/[^0-9,.-]/g,'').replace('.', '').replace(',', '.')); // pt-BR → número
+    }
+
+    function saveScenario(){
+      const payload = {
+        aliquotaPrev: toNum($('#aliquotaPrev').value,0.14),
+        irMetodo: $('#irMetodo').value,
+        irEfetivo: toNum($('#irEfetivo').value,0.173),
+        faixas: state.faixas,
+        vinculos: state.vinculos.map(v=>v.data)
+      };
+      localStorage.setItem('calc-seeduc-scenario', JSON.stringify(payload));
+      alert('Cenário salvo no navegador.');
+    }
+    function loadScenario(){
+      const raw = localStorage.getItem('calc-seeduc-scenario');
+      if(!raw){ alert('Nenhum cenário salvo.'); return; }
+      try{
+        const p = JSON.parse(raw);
+        $('#aliquotaPrev').value = p.aliquotaPrev ?? 0.14;
+        $('#irMetodo').value = p.irMetodo ?? 'efetivo';
+        $('#irEfetivo').value = p.irEfetivo ?? 0.173;
+        state.faixas = Array.isArray(p.faixas)? p.faixas : [{ate:'',aliquota:'',deduzir:''}];
+        renderFaixas();
+        // limpar vínculos
+        $('#vinculos').innerHTML = '';
+        state.vinculos = [];
+        (p.vinculos??[]).forEach(v => addVinculo(v));
+        recalcAll();
+        alert('Cenário carregado.');
+      }catch(e){ alert('Falha ao carregar cenário.'); }
+    }
+
+    function resetAll(){
+      if(!confirm('Zerar e voltar aos valores padrão?')) return;
+      $('#vinculos').innerHTML = '';
+      state.vinculos = [];
+      $('#aliquotaPrev').value = 0.14;
+      $('#irMetodo').value = 'efetivo';
+      $('#irEfetivo').value = 0.173;
+      state.faixas = [{ate:'',aliquota:'',deduzir:''}];
+      renderFaixas();
+      seedDefaults();
+      recalcAll();
+    }
+
+    function seedDefaults(){
+      // Vínculo 1 – 30h C08→C09 (seus dados)
+      addVinculo({
+        nome: 'Vínculo 1 (30h, C08→C09)',
+        basePre: 4665.47,
+        nivel: 0.12,
+        triModo: 'percent',
+        triPercent: 0.50,
+        auxT: 359.10,
+        auxA: 449.10,
+        outros: 0.00,
+        appai: 211.00,
+        cons: 0.00,
+        overrideIr: 'nao',
+      });
+      // Vínculo 2 – migrará 30h C06→C07 (seus dados)
+      addVinculo({
+        nome: 'Vínculo 2 (migrará 30h, C06→C07)',
+        basePre: 3718.43,
+        nivel: 0.12,
+        triModo: 'percent',
+        triPercent: 0.30,
+        auxT: 0.00,
+        auxA: 149.70,
+        outros: 0.00,
+        appai: 0.00,
+        cons: 0.00,
+        overrideIr: 'nao',
+      });
+    }
+
+    // Init
+    renderFaixas();
+    seedDefaults();
+    recalcAll();
+
+    // Bind globals
+    $('#aliquotaPrev').addEventListener('input', recalcAll);
+    $('#irMetodo').addEventListener('change', () => {
+      const metodo = $('#irMetodo').value;
+      $('#irEfetivoBox').style.display = metodo==='efetivo' ? 'grid' : 'none';
+      $('#irTabelaBox').style.display = metodo==='progressivo' ? 'block' : 'none';
+      recalcAll();
+    });
+    $('#irEfetivo').addEventListener('input', recalcAll);
+
+    $('#addVinculo').addEventListener('click', () => addVinculo({nome:'Novo vínculo', basePre:0, nivel:0.12, triModo:'percent', triPercent:0.10, auxT:0, auxA:0, outros:0, appai:0, cons:0, overrideIr:'nao'}));
+    $('#save').addEventListener('click', saveScenario);
+    $('#load').addEventListener('click', loadScenario);
+    $('#reset').addEventListener('click', resetAll);
+  </script></body>
+</html>
